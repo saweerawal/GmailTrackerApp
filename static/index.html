@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mail Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0e0f11;--surface:#16181c;--surface2:#1e2128;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8e9ec;--muted:#7a7f8e;--accent:#c8a96e;--accent-dim:rgba(200,169,110,0.12);--urgent:#e05c5c;--pending:#d4a843;--waiting:#5b9bd5;--done:#5abf8a;--radius:10px;--radius-lg:14px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:28px 20px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{padding:36px 40px;overflow-y:auto}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;background:var(--accent-dim);border:1px solid rgba(200,169,110,0.3);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:1.5}
+.logo-text{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text)}
+.connect-btn{width:100%;padding:10px 14px;border-radius:var(--radius);border:1px solid rgba(200,169,110,0.4);background:var(--accent-dim);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.15s}
+.connect-btn:hover{background:rgba(200,169,110,0.2)}
+.connect-btn.connected{border-color:rgba(90,191,138,0.4);background:rgba(90,191,138,0.08);color:var(--done)}
+.section-label{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.stat-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;cursor:pointer;transition:background 0.12s;border:1px solid transparent}
+.stat-item:hover{background:var(--surface2)}
+.stat-item.active{background:var(--surface2);border-color:var(--border2)}
+.stat-dot{width:8px;height:8px;border-radius:50%}
+.stat-name{font-size:13px;color:var(--muted);margin-left:8px;flex:1}
+.stat-count{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);background:var(--surface2);padding:2px 7px;border-radius:20px}
+select.sel,input.inp{width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none}
+select.sel:focus,input.inp:focus{border-color:rgba(200,169,110,0.4)}
+.fetch-btn{width:100%;padding:10px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s}
+.fetch-btn:hover:not(:disabled){background:var(--surface);border-color:rgba(200,169,110,0.3);color:var(--accent)}
+.fetch-btn:disabled{opacity:0.4;cursor:not-allowed}
+.main-title{font-family:'Instrument Serif',serif;font-size:28px;color:var(--text);margin-bottom:4px}
+.main-sub{font-size:13px;color:var(--muted);margin-bottom:24px}
+.summary-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.sum-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.sum-label{font-size:11px;color:var(--muted);margin-bottom:6px}
+.sum-val{font-size:22px;font-weight:600;font-family:'DM Mono',monospace}
+.filters{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap}
+.search-wrap{flex:1;min-width:200px;position:relative}
+.search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:1.5;pointer-events:none}
+input.search{width:100%;padding:9px 12px 9px 36px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border-color 0.15s}
+input.search:focus{border-color:rgba(200,169,110,0.4)}
+input.search::placeholder{color:var(--muted)}
+select.filter-sel{padding:9px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;cursor:pointer}
+.mail-list{display:flex;flex-direction:column;gap:10px}
+.mail-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;transition:border-color 0.15s}
+.mail-card:hover{border-color:var(--border2)}
+.mail-card.urgent{border-left:3px solid var(--urgent)}
+.mail-card.done{opacity:0.55}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.card-meta{flex:1;min-width:0}
+.card-subject{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.card-from{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace}
+.card-snippet{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.badge-urgent{background:rgba(224,92,92,0.1);color:var(--urgent);border:1px solid rgba(224,92,92,0.2)}
+.badge-pending{background:rgba(212,168,67,0.1);color:var(--pending);border:1px solid rgba(212,168,67,0.2)}
+.badge-waiting{background:rgba(91,155,213,0.1);color:var(--waiting);border:1px solid rgba(91,155,213,0.2)}
+.badge-done{background:rgba(90,191,138,0.1);color:var(--done);border:1px solid rgba(90,191,138,0.2)}
+.card-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:10px}
+.card-tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{padding:2px 9px;border-radius:20px;font-size:11px;background:rgba(255,255,255,0.04);border:1px solid var(--border2);color:var(--muted)}
+.card-actions{display:flex;gap:6px}
+.card-btn{padding:5px 11px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;transition:all 0.12s}
+.card-btn:hover{background:var(--surface2);color:var(--text)}
+.card-btn.danger:hover{color:var(--urgent);border-color:rgba(224,92,92,0.3)}
+.card-btn.primary{border-color:rgba(200,169,110,0.3);color:var(--accent)}
+.card-btn.primary:hover{background:var(--accent-dim)}
+.action-box{background:var(--surface2);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:13px;color:var(--text);display:flex;gap:8px;align-items:flex-start}
+.action-label{font-size:10px;font-weight:600;color:var(--accent);letter-spacing:0.05em;text-transform:uppercase;white-space:nowrap;margin-top:1px}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-title{font-size:15px;color:var(--text);margin-bottom:6px}
+.empty-sub{font-size:13px}
+.loading{text-align:center;padding:60px 20px;color:var(--muted)}
+.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 18px;font-size:13px;color:var(--text);z-index:200;opacity:0;transform:translateY(8px);transition:all 0.2s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* Modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;align-items:center;justify-content:center}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:24px;width:min(500px,92vw);max-height:90vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:500;margin-bottom:16px;color:var(--text)}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:0.05em}
+.field input,.field select,.field textarea{padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:rgba(200,169,110,0.4)}
+.field textarea{min-height:60px}
+.modal-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.btn-cancel{padding:8px 16px;border-radius:var(--radius);border:1px solid var(--border2);background:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer}
+.btn-save{padding:8px 16px;border-radius:var(--radius);border:none;background:var(--accent);color:#0e0f11;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
+.inbox-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:border-color 0.12s;margin-bottom:8px}
+.inbox-item:hover{border-color:var(--border2)}
+.inbox-item.selected{border-color:rgba(200,169,110,0.5);background:var(--accent-dim)}
+.inbox-subject{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inbox-meta{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+.inbox-snippet{font-size:11px;color:var(--muted);margin-top:3px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.inbox-check{width:16px;height:16px;border-radius:4px;border:1px solid var(--border2);background:var(--surface);flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center}
+.inbox-item.selected .inbox-check{background:var(--accent);border-color:var(--accent)}
+.add-selected-btn{width:100%;padding:10px;border-radius:var(--radius);border:1px solid rgba(200,169,110,0.4);background:var(--accent-dim);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;margin-top:8px;transition:background 0.15s}
+.add-selected-btn:hover{background:rgba(200,169,110,0.2)}
+.add-selected-btn:disabled{opacity:0.4;cursor:not-allowed}
+@media(max-width:768px){.app{grid-template-columns:1fr}.sidebar{position:static;height:auto}.main{padding:20px 16px}.summary-strip{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="9" rx="1.5"/><path d="M2 5l6 4 6-4"/></svg></div>
+      <span class="logo-text">MailTrack</span>
+    </div>
+
+    <button class="connect-btn" id="connect-btn" onclick="handleConnect()">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="9" rx="1.5"/><path d="M2 5l6 4 6-4"/></svg>
+      <span id="connect-label">Connect Gmail</span>
+    </button>
+
+    <div>
+      <div class="section-label">Filter by status</div>
+      <div id="stat-items">
+        <div class="stat-item active" data-status="" onclick="setFilter('')">
+          <div class="stat-dot" style="background:var(--muted)"></div>
+          <span class="stat-name">All</span>
+          <span class="stat-count" id="cnt-all">0</span>
+        </div>
+        <div class="stat-item" data-status="urgent" onclick="setFilter('urgent')">
+          <div class="stat-dot" style="background:var(--urgent)"></div>
+          <span class="stat-name">Urgent</span>
+          <span class="stat-count" id="cnt-urgent">0</span>
+        </div>
+        <div class="stat-item" data-status="pending" onclick="setFilter('pending')">
+          <div class="stat-dot" style="background:var(--pending)"></div>
+          <span class="stat-name">Pending</span>
+          <span class="stat-count" id="cnt-pending">0</span>
+        </div>
+        <div class="stat-item" data-status="waiting" onclick="setFilter('waiting')">
+          <div class="stat-dot" style="background:var(--waiting)"></div>
+          <span class="stat-name">Waiting on me</span>
+          <span class="stat-count" id="cnt-waiting">0</span>
+        </div>
+        <div class="stat-item" data-status="done" onclick="setFilter('done')">
+          <div class="stat-dot" style="background:var(--done)"></div>
+          <span class="stat-name">Done</span>
+          <span class="stat-count" id="cnt-done">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label" style="margin-bottom:8px">Fetch from Gmail</div>
+      <select class="sel" id="query-preset" style="margin-bottom:6px">
+        <option value="is:unread">Unread</option>
+        <option value="is:unread is:important">Unread &amp; Important</option>
+        <option value="in:inbox">All inbox</option>
+        <option value="is:starred">Starred</option>
+        <option value="newer_than:2d">Last 2 days</option>
+        <option value="newer_than:7d">Last 7 days</option>
+      </select>
+      <select class="sel" id="count-preset" style="margin-bottom:6px">
+        <option value="10">10 emails</option>
+        <option value="20" selected>20 emails</option>
+        <option value="30">30 emails</option>
+        <option value="50">50 emails</option>
+      </select>
+      <button class="fetch-btn" id="fetch-btn" onclick="fetchEmails()" disabled>
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 8A6 6 0 1 1 8 2"/><path d="M14 2v4h-4"/></svg>
+        Load inbox
+      </button>
+    </div>
+
+    <div>
+      <div class="section-label" style="margin-bottom:8px">Add manually</div>
+      <button class="fetch-btn" onclick="openAdd()">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v12M1 7h12"/></svg>
+        Add email
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <h1 class="main-title">Mail dependencies</h1>
+    <p class="main-sub">Emails that need your review, response, or action</p>
+
+    <div class="summary-strip">
+      <div class="sum-card"><div class="sum-label">Total tracked</div><div class="sum-val" id="s-total">—</div></div>
+      <div class="sum-card"><div class="sum-label" style="color:var(--urgent)">Urgent</div><div class="sum-val" style="color:var(--urgent)" id="s-urgent">—</div></div>
+      <div class="sum-card"><div class="sum-label" style="color:var(--pending)">Pending</div><div class="sum-val" style="color:var(--pending)" id="s-pending">—</div></div>
+      <div class="sum-card"><div class="sum-label" style="color:var(--waiting)">Waiting on me</div><div class="sum-val" style="color:var(--waiting)" id="s-waiting">—</div></div>
+    </div>
+
+    <div class="filters">
+      <div class="search-wrap">
+        <svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+        <input class="search" type="text" id="search" placeholder="Search subject, sender…" oninput="render()"/>
+      </div>
+      <select class="filter-sel" id="tag-filter" onchange="render()">
+        <option value="">All tags</option>
+      </select>
+    </div>
+
+    <div id="mail-list"></div>
+  </main>
+</div>
+
+<!-- Inbox picker modal -->
+<div class="overlay" id="inbox-overlay" style="display:none">
+  <div class="modal" style="width:min(620px,95vw)">
+    <div class="modal-title">Select emails to track</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Click emails to select them, then click "Add to tracker"</p>
+    <div id="inbox-list"></div>
+    <button class="add-selected-btn" id="add-selected-btn" onclick="addSelected()" disabled>Add selected to tracker</button>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeInbox()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit/Add modal -->
+<div class="overlay" id="edit-overlay" style="display:none">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add email</div>
+    <div class="field"><label>Subject</label><input id="f-subject" placeholder="Email subject"/></div>
+    <div class="field"><label>From</label><input id="f-from" placeholder="sender@example.com"/></div>
+    <div class="field"><label>What I need to do</label><textarea id="f-action" placeholder="e.g. Review and respond to proposal"></textarea></div>
+    <div class="modal-row">
+      <div class="field"><label>Status</label>
+        <select id="f-status">
+          <option value="pending">Pending</option>
+          <option value="urgent">Urgent</option>
+          <option value="waiting">Waiting on me</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+      <div class="field"><label>Due date</label><input id="f-due" placeholder="e.g. Apr 25"/></div>
+    </div>
+    <div class="field"><label>Tags (comma-separated)</label><input id="f-tags" placeholder="e.g. finance, legal, approval"/></div>
+    <div class="field"><label>Notes</label><input id="f-notes" placeholder="Any extra context or dependencies"/></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeEdit()">Cancel</button>
+      <button class="btn-save" onclick="saveEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let mails = [];
+let inbox = [];
+let selected = new Set();
+let editId = null;
+let nextId = 1;
+let activeFilter = '';
+
+const statusCycle = {urgent:'pending',pending:'waiting',waiting:'done',done:'urgent'};
+const statusLabel = {urgent:'Urgent',pending:'Pending',waiting:'Waiting on me',done:'Done'};
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function toast(msg,dur=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
+
+async function checkAuth(){
+  try{const r=await fetch('/auth/status',{credentials:'include'});const d=await r.json();updateConnectUI(d.connected)}catch(e){}
+}
+
+function updateConnectUI(connected){
+  const btn=document.getElementById('connect-btn');
+  const lbl=document.getElementById('connect-label');
+  const fb=document.getElementById('fetch-btn');
+  if(connected){btn.className='connect-btn connected';lbl.textContent='Gmail connected';fb.disabled=false}
+  else{btn.className='connect-btn';lbl.textContent='Connect Gmail';fb.disabled=true}
+}
+
+async function handleConnect(){
+  const lbl=document.getElementById('connect-label');
+  if(lbl.textContent==='Gmail connected'){
+    await fetch('/auth/logout',{credentials:'include'});
+    updateConnectUI(false);toast('Disconnected');return;
+  }
+  // Direct redirect — more reliable than popup on Mac/Chrome
+  window.location.href='/auth/login';
+}
+
+async function fetchEmails(){
+  const q=document.getElementById('query-preset').value;
+  const max=document.getElementById('count-preset').value;
+  const btn=document.getElementById('fetch-btn');
+  btn.disabled=true;btn.innerHTML='<div class="spinner" style="width:14px;height:14px;border-width:1.5px;margin:0"></div> Loading…';
+  try{
+    const r=await fetch(`/api/emails?q=${encodeURIComponent(q)}&max=${max}`,{credentials:'include'});
+    const d=await r.json();
+    if(d.error){toast('Not connected — please connect Gmail first');return}
+    inbox=d.emails;selected=new Set();
+    showInbox();
+  }catch(e){toast('Error: '+e.message)}
+  finally{btn.disabled=false;btn.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 8A6 6 0 1 1 8 2"/><path d="M14 2v4h-4"/></svg> Load inbox'}
+}
+
+function showInbox(){
+  document.getElementById('inbox-overlay').style.display='flex';
+  const list=document.getElementById('inbox-list');
+  if(!inbox.length){list.innerHTML='<p style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No emails found for this query.</p>';return}
+  list.innerHTML=inbox.map(e=>`
+    <div class="inbox-item" id="ii-${e.id}" onclick="toggleSelect('${e.id}')">
+      <div class="inbox-check" id="ic-${e.id}">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#0e0f11" stroke-width="2" stroke-linecap="round"><path d="M2 5l2.5 2.5L8 2.5"/></svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="inbox-subject">${esc(e.subject)}</div>
+        <div class="inbox-meta">${esc(e.from_name||e.from_email)} · ${esc(e.date)}</div>
+        <div class="inbox-snippet">${esc(e.snippet)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleSelect(id){
+  if(selected.has(id)){selected.delete(id);document.getElementById('ii-'+id).classList.remove('selected')}
+  else{selected.add(id);document.getElementById('ii-'+id).classList.add('selected')}
+  document.getElementById('add-selected-btn').disabled=selected.size===0;
+  document.getElementById('add-selected-btn').textContent=selected.size?`Add ${selected.size} email${selected.size>1?'s':''} to tracker`:'Add selected to tracker';
+}
+
+function addSelected(){
+  const toAdd=inbox.filter(e=>selected.has(e.id));
+  const alreadyTracked=new Set(mails.map(m=>m.gmailId));
+  let added=0;
+  toAdd.forEach(e=>{
+    if(alreadyTracked.has(e.id))return;
+    mails.unshift({id:nextId++,gmailId:e.id,subject:e.subject,from:e.from_name||e.from_email,date:e.date,action:'',status:'pending',due:'',tags:[],notes:e.snippet||''});
+    added++;
+  });
+  closeInbox();render();
+  toast(added?`Added ${added} email${added>1?'s':''} to tracker`:'Already in tracker');
+}
+
+function closeInbox(){document.getElementById('inbox-overlay').style.display='none'}
+
+function openAdd(){
+  editId=null;
+  document.getElementById('modal-title').textContent='Add email';
+  ['subject','from','action','due','tags','notes'].forEach(f=>document.getElementById('f-'+f).value='');
+  document.getElementById('f-status').value='pending';
+  document.getElementById('edit-overlay').style.display='flex';
+}
+
+function editEntry(id){
+  const m=mails.find(x=>x.id===id);if(!m)return;
+  editId=id;
+  document.getElementById('modal-title').textContent='Edit email';
+  document.getElementById('f-subject').value=m.subject;
+  document.getElementById('f-from').value=m.from;
+  document.getElementById('f-action').value=m.action||'';
+  document.getElementById('f-status').value=m.status;
+  document.getElementById('f-due').value=m.due||'';
+  document.getElementById('f-tags').value=(m.tags||[]).join(', ');
+  document.getElementById('f-notes').value=m.notes||'';
+  document.getElementById('edit-overlay').style.display='flex';
+}
+
+function closeEdit(){document.getElementById('edit-overlay').style.display='none'}
+
+function saveEntry(){
+  const subject=document.getElementById('f-subject').value.trim();
+  if(!subject)return;
+  const entry={subject,from:document.getElementById('f-from').value.trim(),action:document.getElementById('f-action').value.trim(),status:document.getElementById('f-status').value,due:document.getElementById('f-due').value.trim(),tags:document.getElementById('f-tags').value.split(',').map(t=>t.trim()).filter(Boolean),notes:document.getElementById('f-notes').value.trim(),date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})};
+  if(editId){const i=mails.findIndex(x=>x.id===editId);if(i>=0)mails[i]={...mails[i],...entry}}
+  else{entry.id=nextId++;mails.unshift(entry)}
+  closeEdit();render();toast('Saved');
+}
+
+function cycleStatus(id){const m=mails.find(x=>x.id===id);if(m){m.status=statusCycle[m.status]||'pending';render()}}
+function removeEntry(id){mails=mails.filter(x=>x.id!==id);render()}
+
+function setFilter(s){
+  activeFilter=s;
+  document.querySelectorAll('.stat-item').forEach(el=>el.classList.toggle('active',el.dataset.status===s));
+  render();
+}
+
+function updateTagFilter(){
+  const tags=[...new Set(mails.flatMap(m=>m.tags||[]))].sort();
+  const sel=document.getElementById('tag-filter');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">All tags</option>'+tags.map(t=>`<option value="${t}"${cur===t?' selected':''}>${t}</option>`).join('');
+}
+
+function render(){
+  updateTagFilter();
+  const q=document.getElementById('search').value.toLowerCase();
+  const tf=document.getElementById('tag-filter').value;
+  let filtered=mails.filter(m=>{
+    if(activeFilter&&m.status!==activeFilter)return false;
+    if(tf&&!(m.tags||[]).includes(tf))return false;
+    if(q&&!(m.subject.toLowerCase().includes(q)||(m.from||'').toLowerCase().includes(q)))return false;
+    return true;
+  });
+  const order={urgent:0,waiting:1,pending:2,done:3};
+  filtered.sort((a,b)=>order[a.status]-order[b.status]);
+
+  const counts={urgent:0,pending:0,waiting:0,done:0};
+  mails.forEach(m=>counts[m.status]=(counts[m.status]||0)+1);
+  document.getElementById('cnt-all').textContent=mails.length;
+  ['urgent','pending','waiting','done'].forEach(s=>document.getElementById('cnt-'+s).textContent=counts[s]||0);
+  document.getElementById('s-total').textContent=mails.length||'—';
+  document.getElementById('s-urgent').textContent=counts.urgent||'—';
+  document.getElementById('s-pending').textContent=counts.pending||'—';
+  document.getElementById('s-waiting').textContent=counts.waiting||'—';
+
+  const list=document.getElementById('mail-list');
+  if(!mails.length){
+    list.innerHTML=`<div class="empty"><div class="empty-title">No emails tracked yet</div><div class="empty-sub">Connect Gmail and click "Load inbox" to import emails, or add them manually</div></div>`;
+    return;
+  }
+  if(!filtered.length){
+    list.innerHTML=`<div class="empty"><div class="empty-title">No results</div><div class="empty-sub">Try adjusting your filters</div></div>`;
+    return;
+  }
+  list.innerHTML=filtered.map(m=>`
+    <div class="mail-card ${m.status}">
+      <div class="card-top">
+        <div class="card-meta">
+          <div class="card-subject" title="${esc(m.subject)}">${esc(m.subject)}</div>
+          <div class="card-from">${esc(m.from)}${m.date?` · ${esc(m.date)}`:''}
+          </div>
+          ${!m.action&&m.notes?`<div class="card-snippet">${esc(m.notes)}</div>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+          <span class="badge badge-${m.status}">${statusLabel[m.status]}</span>
+          ${m.due?`<span style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">Due ${esc(m.due)}</span>`:''}
+        </div>
+      </div>
+      ${m.action?`<div class="action-box"><span class="action-label">Action</span>${esc(m.action)}</div>`:''}
+      <div class="card-footer">
+        <div class="card-tags">${(m.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+        <div class="card-actions">
+          <button class="card-btn primary" onclick="editEntry(${m.id})">Edit</button>
+          <button class="card-btn" onclick="cycleStatus(${m.id})">Next status</button>
+          <button class="card-btn danger" onclick="removeEntry(${m.id})">Remove</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+if(new URLSearchParams(location.search).get('connected')){
+  history.replaceState({},'','/');
+  toast('Gmail connected!');
+}
+checkAuth();
+render();
+</script>
+</body>
+</html>
